@@ -3434,7 +3434,16 @@ class PDO_DataObject
      */
     final function escape($string, $likeEscape=false)
     {
-        $ret = trim($this->PDO()->quote($string),"'");
+        // PDO::quote() wraps the value in exactly one leading and one trailing
+        // single-quote, with the inner content correctly escaped for the driver.
+        // Strip precisely those two wrapper quotes - NOT trim(), which keeps
+        // eating characters past the wrapper (e.g. an escaped inner quote), and
+        // could leave a trailing lone backslash that breaks out of the caller's
+        // string literal.
+        $q = $this->PDO()->quote((string) $string);
+        $ret = (strlen($q) >= 2 && $q[0] === "'" && substr($q, -1) === "'")
+            ? substr($q, 1, -1)
+            : $q; // anomaly (e.g. driver returned false) - don't corrupt it
         if ($likeEscape) {
             $ret = str_replace(array('_','%'), array('\_','\%'), $ret);
         }
